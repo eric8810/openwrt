@@ -103,7 +103,7 @@ config KERNEL_DEBUG_LL
 	help
 	  ARM low level debugging.
 
-config KERNEL_DYNAMIC_DEBUG 
+config KERNEL_DYNAMIC_DEBUG
 	bool "Compile the kernel with dynamic printk"
 	select KERNEL_DEBUG_FS
 	default n
@@ -265,6 +265,13 @@ if KERNEL_CGROUPS
 		  Provides a cgroup implementing whitelists for devices which
 		  a process in the cgroup can mknod or open.
 
+	config KERNEL_CGROUP_PIDS
+		bool "PIDs cgroup subsystem"
+		default y
+		help
+		  Provides enforcement of process number limits in the scope of a
+		  cgroup.
+
 	config KERNEL_CPUSETS
 		bool "Cpuset support"
 		default n
@@ -300,7 +307,7 @@ if KERNEL_CGROUPS
 	config KERNEL_MEMCG
 		bool "Memory Resource Controller for Control Groups"
 		default n
-		depends on KERNEL_RESOURCE_COUNTERS
+		depends on KERNEL_RESOURCE_COUNTERS || !LINUX_3_18
 		help
 		  Provides a memory resource controller that manages both anonymous
 		  memory and page cache. (See Documentation/cgroups/memory.txt)

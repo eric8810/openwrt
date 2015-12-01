@@ -148,6 +148,23 @@ endef
 $(eval $(call KernelPackage,gw16083))
 
 
+define KernelPackage/phy-broadcom
+   SUBMENU:=$(NETWORK_DEVICES_MENU)
+   TITLE:=Broadcom Ethernet PHY driver
+   KCONFIG:=CONFIG_BROADCOM_PHY
+   DEPENDS:=+kmod-libphy
+   FILES:=$(LINUX_DIR)/drivers/net/phy/broadcom.ko
+   AUTOLOAD:=$(call AutoLoad,18,broadcom)
+endef
+
+define KernelPackage/phy-broadcom/description
+   Currently supports the BCM5411, BCM5421, BCM5461, BCM5464, BCM5481,
+   BCM5482 and BCM57780 PHYs.
+endef
+
+$(eval $(call KernelPackage,phy-broadcom))
+
+
 define KernelPackage/swconfig
   SUBMENU:=$(NETWORK_DEVICES_MENU)
   TITLE:=switch configuration API
@@ -163,6 +180,20 @@ endef
 
 $(eval $(call KernelPackage,swconfig))
 
+define KernelPackage/switch-mvsw61xx
+  SUBMENU:=$(NETWORK_DEVICES_MENU)
+  TITLE:=Marvell 88E61xx switch support
+  DEPENDS:=+kmod-swconfig
+  KCONFIG:=CONFIG_MVSW61XX_PHY
+  FILES:=$(LINUX_DIR)/drivers/net/phy/mvsw61xx.ko
+  AUTOLOAD:=$(call AutoLoad,42,mvsw61xx)
+endef
+
+define KernelPackage/switch-mvsw61xx/description
+ Marvell 88E61xx switch support
+endef
+
+$(eval $(call KernelPackage,switch-mvsw61xx))
 
 define KernelPackage/switch-ip17xx
   SUBMENU:=$(NETWORK_DEVICES_MENU)

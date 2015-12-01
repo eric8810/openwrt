@@ -7,22 +7,23 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/target.mk
 
-PKG_NAME:=uClibc
 PKG_VERSION:=$(call qstrip,$(CONFIG_UCLIBC_VERSION))
-PKG_SOURCE_URL:=http://www.uclibc.org/downloads
+
+PKG_NAME:=uClibc-ng
+PKG_SOURCE_URL = http://downloads.uclibc-ng.org/releases/$(PKG_VERSION)/
+PATCH_DIR:=$(PATH_PREFIX)/patches
+CONFIG_DIR:=$(PATH_PREFIX)/config
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 LIBC_SO_VERSION:=$(PKG_VERSION)
-PATCH_DIR:=$(PATH_PREFIX)/patches-$(PKG_VERSION)
-CONFIG_DIR:=$(PATH_PREFIX)/config-$(PKG_VERSION)
 
-PKG_MD5SUM_0.9.33.2 = a338aaffc56f0f5040e6d9fa8a12eda1
-PKG_MD5SUM=$(PKG_MD5SUM_$(PKG_VERSION))
+PKG_MD5SUM=d7dbc8ddb0274beacbb48e6928d7b097
 
 HOST_BUILD_DIR:=$(BUILD_DIR_TOOLCHAIN)/$(PKG_NAME)-$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/toolchain-build.mk
 
 UCLIBC_TARGET_ARCH:=$(shell echo $(ARCH) | sed -e s'/-.*//' \
+		-e 's/arc.*/arc/' \
 		-e 's/i.86/i386/' \
 		-e 's/sparc.*/sparc/' \
 		-e 's/arm.*/arm/g' \
@@ -78,7 +79,7 @@ define Host/Configure
 		-e 's,^.*UCLIBC_HAS_SHADOW.*,UCLIBC_HAS_SHADOW=$(if $(CONFIG_SHADOW_PASSWORDS),y,n),g' \
 		-e 's,^.*UCLIBC_HAS_LOCALE.*,UCLIBC_HAS_LOCALE=$(if $(CONFIG_BUILD_NLS),y,n),g' \
 		-e 's,^.*UCLIBC_BUILD_ALL_LOCALE.*,UCLIBC_BUILD_ALL_LOCALE=$(if $(CONFIG_BUILD_NLS),y,n),g' \
-		-e 's,^.*UCLIBC_HAS_SSP.*,UCLIBC_HAS_SSP=$(if $(or $(CONFIG_PKG_CC_STACKPROTECTOR_REGULAR),$(CONFIG_PKG_CC_STACKPROTECTOR_STRONG)),y,n),g' \
+		-e 's,^.*UCLIBC_HAS_SSP[^_].*,UCLIBC_HAS_SSP=$(if $(or $(CONFIG_PKG_CC_STACKPROTECTOR_REGULAR),$(CONFIG_PKG_CC_STACKPROTECTOR_STRONG)),y,n),g' \
 		$(HOST_BUILD_DIR)/.config.new
 	cmp -s $(HOST_BUILD_DIR)/.config.new $(HOST_BUILD_DIR)/.config.last || { \
 		cp $(HOST_BUILD_DIR)/.config.new $(HOST_BUILD_DIR)/.config && \

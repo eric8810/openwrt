@@ -13,7 +13,9 @@ WATCHDOG_DIR:=watchdog
 define KernelPackage/6lowpan
   SUBMENU:=$(OTHER_MENU)
   TITLE:=6LoWPAN shared code
-  KCONFIG:=CONFIG_6LOWPAN
+  KCONFIG:= \
+	CONFIG_6LOWPAN \
+	CONFIG_6LOWPAN_NHC=n
   FILES:=$(LINUX_DIR)/net/6lowpan/6lowpan.ko
   AUTOLOAD:=$(call AutoProbe,6lowpan)
 endef
@@ -28,7 +30,7 @@ $(eval $(call KernelPackage,6lowpan))
 define KernelPackage/bluetooth
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Bluetooth support
-  DEPENDS:=@USB_SUPPORT +kmod-usb-core +kmod-crypto-hash +kmod-lib-crc16 +kmod-hid
+  DEPENDS:=@USB_SUPPORT +kmod-usb-core +kmod-crypto-hash +kmod-crypto-ecb +kmod-lib-crc16 +kmod-hid +!LINUX_3_18:kmod-crypto-cmac
   KCONFIG:= \
 	CONFIG_BLUEZ \
 	CONFIG_BLUEZ_L2CAP \
@@ -40,14 +42,18 @@ define KernelPackage/bluetooth
 	CONFIG_BLUEZ_HIDP \
 	CONFIG_BT \
 	CONFIG_BT_BREDR=y \
+	CONFIG_BT_DEBUGFS=n \
 	CONFIG_BT_L2CAP=y \
 	CONFIG_BT_LE=y \
 	CONFIG_BT_SCO=y \
 	CONFIG_BT_RFCOMM \
 	CONFIG_BT_BNEP \
 	CONFIG_BT_HCIBTUSB \
+	CONFIG_BT_HCIBTUSB_BCM=n \
 	CONFIG_BT_HCIUSB \
 	CONFIG_BT_HCIUART \
+	CONFIG_BT_HCIUART_BCM=n \
+	CONFIG_BT_HCIUART_INTEL=n \
 	CONFIG_BT_HCIUART_H4 \
 	CONFIG_BT_HIDP \
 	CONFIG_HID_SUPPORT=y
@@ -59,6 +65,10 @@ define KernelPackage/bluetooth
 	$(LINUX_DIR)/net/bluetooth/hidp/hidp.ko \
 	$(LINUX_DIR)/drivers/bluetooth/hci_uart.ko \
 	$(LINUX_DIR)/drivers/bluetooth/btusb.ko
+ifeq ($(strip $(call CompareKernelPatchVer,$(KERNEL_PATCHVER),ge,4.1.0)),1)
+  FILES+= \
+	$(LINUX_DIR)/drivers/bluetooth/btintel.ko
+endif
   AUTOLOAD:=$(call AutoProbe,bluetooth rfcomm bnep hidp hci_uart btusb)
 endef
 
@@ -68,6 +78,25 @@ endef
 
 $(eval $(call KernelPackage,bluetooth))
 
+define KernelPackage/ath3k
+  SUBMENU:=$(OTHER_MENU)
+  TITLE:=ATH3K Kernel Module support
+  DEPENDS:=+kmod-bluetooth +ar3k-firmware
+  KCONFIG:= \
+	CONFIG_BT_ATH3K \
+	CONFIG_BT_HCIUART_ATH3K=y
+  $(call AddDepends/bluetooth)
+  FILES:= \
+	$(LINUX_DIR)/drivers/bluetooth/ath3k.ko
+  AUTOLOAD:=$(call AutoProbe,ath3k)
+endef
+
+define KernelPackage/ath3k/description
+ Kernel support for ATH3K Module
+endef
+
+$(eval $(call KernelPackage,ath3k))
+
 
 define KernelPackage/bluetooth_6lowpan
   SUBMENU:=$(OTHER_MENU)
@@ -75,7 +104,7 @@ define KernelPackage/bluetooth_6lowpan
   DEPENDS:=+kmod-6lowpan +kmod-bluetooth
   KCONFIG:=CONFIG_BT_6LOWPAN
   FILES:=$(LINUX_DIR)/net/bluetooth/bluetooth_6lowpan.ko
-       AUTOLOAD:=$(call AutoProbe,bluetooth)
+  AUTOLOAD:=$(call AutoProbe,bluetooth_6lowpan)
 endef
 
 define KernelPackage/bluetooth_6lowpan/description
@@ -291,7 +320,6 @@ $(eval $(call KernelPackage,iio-dht11))
 define KernelPackage/lp
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Parallel port and line printer support
-  DEPENDS:=@BROKEN
   KCONFIG:= \
 	CONFIG_PARPORT \
 	CONFIG_PRINTER \
@@ -300,7 +328,7 @@ define KernelPackage/lp
 	$(LINUX_DIR)/drivers/parport/parport.ko \
 	$(LINUX_DIR)/drivers/char/lp.ko \
 	$(LINUX_DIR)/drivers/char/ppdev.ko
-  AUTOLOAD:=$(call AutoLoad,50,parport lp)
+  AUTOLOAD:=$(call AutoLoad,50,parport lp ppdev)
 endef
 
 $(eval $(call KernelPackage,lp))
@@ -353,21 +381,6 @@ endef
 $(eval $(call KernelPackage,sdhci))
 
 
-define KernelPackage/oprofile
-  SUBMENU:=$(OTHER_MENU)
-  TITLE:=OProfile profiling support
-  KCONFIG:=CONFIG_OPROFILE
-  FILES:=$(LINUX_DIR)/arch/$(LINUX_KARCH)/oprofile/oprofile.ko
-  DEPENDS:=@KERNEL_PROFILING
-endef
-
-define KernelPackage/oprofile/description
- Kernel module for support for oprofile system profiling
-endef
-
-$(eval $(call KernelPackage,oprofile))
-
-
 define KernelPackage/rfkill
   SUBMENU:=$(OTHER_MENU)
   TITLE:=RF switch subsystem support
@@ -395,7 +408,7 @@ define KernelPackage/softdog
   TITLE:=Software watchdog driver
   KCONFIG:=CONFIG_SOFT_WATCHDOG
   FILES:=$(LINUX_DIR)/drivers/$(WATCHDOG_DIR)/softdog.ko
-  AUTOLOAD:=$(call AutoLoad,50,softdog)
+  AUTOLOAD:=$(call AutoLoad,50,softdog,1)
 endef
 
 define KernelPackage/softdog/description
@@ -434,7 +447,7 @@ $(eval $(call KernelPackage,ssb))
 define KernelPackage/bcma
   SUBMENU:=$(OTHER_MENU)
   TITLE:=BCMA support
-  DEPENDS:=@PCI_SUPPORT @!TARGET_brcm47xx
+  DEPENDS:=@PCI_SUPPORT @!TARGET_brcm47xx @!TARGET_bcm53xx
   KCONFIG:=\
 	CONFIG_BCMA \
 	CONFIG_BCMA_POSSIBLE=y \
@@ -463,7 +476,7 @@ define KernelPackage/wdt-omap
   DEPENDS:=@(TARGET_omap24xx||TARGET_omap35xx)
   KCONFIG:=CONFIG_OMAP_WATCHDOG
   FILES:=$(LINUX_DIR)/drivers/$(WATCHDOG_DIR)/omap_wdt.ko
-  AUTOLOAD:=$(call AutoLoad,50,omap_wdt.ko,1)
+  AUTOLOAD:=$(call AutoLoad,50,omap_wdt,1)
 endef
 
 define KernelPackage/wdt-omap/description
@@ -509,7 +522,8 @@ define KernelPackage/rtc-ds1307
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Dallas/Maxim DS1307 (and compatible) RTC support
   DEPENDS:=@RTC_SUPPORT +kmod-i2c-core
-  KCONFIG:=CONFIG_RTC_DRV_DS1307
+  KCONFIG:=CONFIG_RTC_DRV_DS1307 \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-ds1307.ko
   AUTOLOAD:=$(call AutoProbe,rtc-ds1307)
 endef
@@ -526,7 +540,8 @@ define KernelPackage/rtc-ds1672
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Dallas/Maxim DS1672 RTC support
   DEPENDS:=@RTC_SUPPORT +kmod-i2c-core
-  KCONFIG:=CONFIG_RTC_DRV_DS1672
+  KCONFIG:=CONFIG_RTC_DRV_DS1672 \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-ds1672.ko
   AUTOLOAD:=$(call AutoProbe,rtc-ds1672)
 endef
@@ -542,7 +557,8 @@ define KernelPackage/rtc-isl1208
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Intersil ISL1208 RTC support
   DEPENDS:=@RTC_SUPPORT +kmod-i2c-core
-  KCONFIG:=CONFIG_RTC_DRV_ISL1208
+  KCONFIG:=CONFIG_RTC_DRV_ISL1208 \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-isl1208.ko
   AUTOLOAD:=$(call AutoProbe,rtc-isl1208)
 endef
@@ -558,7 +574,8 @@ define KernelPackage/rtc-marvell
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Marvell SoC built-in RTC support
   DEPENDS:=@RTC_SUPPORT @TARGET_kirkwood||TARGET_orion||TARGET_mvebu
-  KCONFIG:=CONFIG_RTC_DRV_MV
+  KCONFIG:=CONFIG_RTC_DRV_MV \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-mv.ko
   AUTOLOAD:=$(call AutoProbe,rtc-mv)
 endef
@@ -574,7 +591,8 @@ define KernelPackage/rtc-armada38x
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Marvell Armada 38x SoC built-in RTC support
   DEPENDS:=@RTC_SUPPORT @TARGET_mvebu
-  KCONFIG:=CONFIG_RTC_DRV_ARMADA38X
+  KCONFIG:=CONFIG_RTC_DRV_ARMADA38X \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-armada38x.ko
   AUTOLOAD:=$(call AutoProbe,rtc-armada38x)
 endef
@@ -590,7 +608,8 @@ define KernelPackage/rtc-pcf8563
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Philips PCF8563/Epson RTC8564 RTC support
   DEPENDS:=@RTC_SUPPORT +kmod-i2c-core
-  KCONFIG:=CONFIG_RTC_DRV_PCF8563
+  KCONFIG:=CONFIG_RTC_DRV_PCF8563 \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-pcf8563.ko
   AUTOLOAD:=$(call AutoProbe,rtc-pcf8563)
 endef
@@ -607,7 +626,8 @@ define KernelPackage/rtc-pcf2123
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Philips PCF2123 RTC support
   DEPENDS:=@RTC_SUPPORT
-  KCONFIG:=CONFIG_RTC_DRV_PCF2123
+  KCONFIG:=CONFIG_RTC_DRV_PCF2123 \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-pcf2123.ko
   AUTOLOAD:=$(call AutoProbe,rtc-pcf2123)
 endef
@@ -622,7 +642,8 @@ define KernelPackage/rtc-pt7c4338
   SUBMENU:=$(OTHER_MENU)
   TITLE:=Pericom PT7C4338 RTC support
   DEPENDS:=@RTC_SUPPORT +kmod-i2c-core
-  KCONFIG:=CONFIG_RTC_DRV_PT7C4338
+  KCONFIG:=CONFIG_RTC_DRV_PT7C4338 \
+	CONFIG_RTC_CLASS=y
   FILES:=$(LINUX_DIR)/drivers/rtc/rtc-pt7c4338.ko
   AUTOLOAD:=$(call AutoProbe,rtc-pt7c4338)
 endef
@@ -638,7 +659,6 @@ define KernelPackage/mtdtests
   SUBMENU:=$(OTHER_MENU)
   TITLE:=MTD subsystem tests
   KCONFIG:=CONFIG_MTD_TESTS
-  DEPENDS:=+kmod-nand
   FILES:=\
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_nandecctest.ko \
 	$(LINUX_DIR)/drivers/mtd/tests/mtd_oobtest.ko \
@@ -656,40 +676,6 @@ endef
 
 $(eval $(call KernelPackage,mtdtests))
 
-
-define KernelPackage/nand
-  SUBMENU:=$(OTHER_MENU)
-  TITLE:=NAND flash support
-  KCONFIG:=CONFIG_MTD_NAND \
-	CONFIG_MTD_NAND_IDS \
-	CONFIG_MTD_NAND_ECC
-  FILES:= \
-	$(LINUX_DIR)/drivers/mtd/nand/nand_ids.ko \
-	$(LINUX_DIR)/drivers/mtd/nand/nand_ecc.ko \
-	$(LINUX_DIR)/drivers/mtd/nand/nand.ko
-  AUTOLOAD:=$(call AutoLoad,20,nand_ids nand_ecc nand)
-endef
-
-define KernelPackage/nand/description
- Kernel module for NAND support
-endef
-
-$(eval $(call KernelPackage,nand))
-
-
-define KernelPackage/nandsim
-  SUBMENU:=$(OTHER_MENU)
-  TITLE:=NAND simulator
-  DEPENDS:=+kmod-nand
-  KCONFIG:=CONFIG_MTD_NAND_NANDSIM
-  FILES:=$(LINUX_DIR)/drivers/mtd/nand/nandsim.ko
-endef
-
-define KernelPackage/nandsim/description
- Kernel module for NAND flash simulation.
-endef
-
-$(eval $(call KernelPackage,nandsim))
 
 define KernelPackage/serial-8250
   SUBMENU:=$(OTHER_MENU)
@@ -717,14 +703,16 @@ define KernelPackage/regmap
   TITLE:=Generic register map support
   DEPENDS:=+kmod-lib-lzo +kmod-i2c-core
   KCONFIG:=CONFIG_REGMAP \
+	   CONFIG_REGMAP_MMIO \
 	   CONFIG_REGMAP_SPI \
 	   CONFIG_REGMAP_I2C \
 	   CONFIG_SPI=y
   FILES:= \
 	$(LINUX_DIR)/drivers/base/regmap/regmap-core.ko \
 	$(LINUX_DIR)/drivers/base/regmap/regmap-i2c.ko \
+	$(LINUX_DIR)/drivers/base/regmap/regmap-mmio.ko \
 	$(if $(CONFIG_SPI),$(LINUX_DIR)/drivers/base/regmap/regmap-spi.ko)
-  AUTOLOAD:=$(call AutoLoad,21,regmap-core regmap-i2c regmap-spi)
+  AUTOLOAD:=$(call AutoLoad,21,regmap-core regmap-i2c regmap-mmio regmap-spi)
 endef
 
 define KernelPackage/regmap/description
